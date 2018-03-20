@@ -10,7 +10,6 @@ module.exports = {
   },
   output: {
     path: distPath,
-    library: "[name]",
     libraryTarget: "umd"
   },
   plugins: [
