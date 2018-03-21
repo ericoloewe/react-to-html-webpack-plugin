@@ -1,6 +1,5 @@
-const { ReactPlugin } = require("./webpack/react-plugin");
+const { ReactPlugin } = require("webpack-react-plugin");
 const path = require("path");
-
 const sourcePath = path.resolve(process.cwd(), "src");
 const distPath = path.resolve(process.cwd(), "dist");
 
