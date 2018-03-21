@@ -6,7 +6,7 @@ const React = require("react");
 const evaluate = require("eval");
 const path = require("path");
 
-module.exports.WebpackReactToHtmlPlugin = class {
+module.exports.ReactToHtmlWebpackPlugin = class {
   constructor(props = {}) {
     this.globals = props.globals || { global, window: global };
     this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
