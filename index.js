@@ -19,8 +19,8 @@ module.exports = class ReactToHtmlWebpackPlugin {
       compilation.hooks.optimizeAssets.tapAsync("react-plugins", (_, doneOptimize) => {
         const { assets, chunks } = compilation;
 
-        try {
-          chunks.forEach(c => {
+        chunks.forEach(c => {
+          try {
             if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
               c.files.forEach(f => {
                 const renderedFile = this._renderSource(f, assets[f].source());
@@ -30,10 +30,10 @@ module.exports = class ReactToHtmlWebpackPlugin {
                 delete compilation.assets[f];
               });
             }
-          });
-        } catch (ex) {
-          compilation.errors.push(ex.stack);
-        }
+          } catch (ex) {
+            compilation.errors.push(ex.stack);
+          }
+        });
 
         doneOptimize();
       });
