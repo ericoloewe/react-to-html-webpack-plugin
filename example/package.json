@@ -24,6 +24,6 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-react": "^6.24.1",
     "babel-register": "^6.26.0",
-    "webpack-react-plugin": "git+https://github.com/ericoloewe/webpack-react-to-html-plugin.git"
+    "webpack-react-to-html-plugin": "git+https://github.com/ericoloewe/webpack-react-to-html-plugin.git"
   }
 }
