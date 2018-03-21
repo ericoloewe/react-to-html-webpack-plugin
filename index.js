@@ -21,7 +21,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
 
         try {
           chunks.forEach(c => {
-            if ((!this._hasChunks() || this._isChunksToWork(c.id)) && !this._isExcludedChunks(c.id)) {
+            if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
               c.files.forEach(f => {
                 const renderedFile = this._renderSource(f, assets[f].source());
 
