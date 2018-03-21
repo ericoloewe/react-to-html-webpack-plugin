@@ -1,5 +1,5 @@
 /**
- * React plugin
+ * React To Html Webpack Plugin
  */
 const ReactDOMServer = require("react-dom/server");
 const React = require("react");
@@ -15,8 +15,8 @@ module.exports = class ReactToHtmlWebpackPlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.thisCompilation.tap("react-plugins", (compilation) => {
-      compilation.hooks.optimizeAssets.tapAsync("react-plugins", (_, doneOptimize) => {
+    compiler.hooks.thisCompilation.tap("react-to-html-webpack-plugin", (compilation) => {
+      compilation.hooks.optimizeAssets.tapAsync("react-to-html-webpack-plugin", (_, doneOptimize) => {
         const { assets, chunks } = compilation;
 
         chunks.forEach(c => {
