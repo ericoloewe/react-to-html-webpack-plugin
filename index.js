@@ -22,7 +22,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
         chunks.forEach(c => {
           try {
             if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-              c.files.forEach(f => {
+              c.files.filter(f => f.indexOf(`${c.name}.js`) >= 0).forEach(f => {
                 const renderedFile = this._renderSource(f, assets[f].source());
 
                 compilation.assets[this._parseAssetName(f)] = this._parseRenderToAsset(`${this.htmlHeader}${renderedFile}`);
