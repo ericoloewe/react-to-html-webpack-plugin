@@ -1,5 +1,5 @@
 {
-  "name": "react-plugin",
+  "name": "example-webpack-react-to-html-plugin",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -24,6 +24,6 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-react": "^6.24.1",
     "babel-register": "^6.26.0",
-    "webpack-react-plugin": "git+https://github.com/ericoloewe/webpack-react-plugin.git"
+    "webpack-react-plugin": "git+https://github.com/ericoloewe/webpack-react-to-html-plugin.git"
   }
 }
