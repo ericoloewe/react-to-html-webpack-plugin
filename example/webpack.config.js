@@ -1,4 +1,4 @@
-const { ReactToHtmlWebpackPlugin } = require("react-to-html-webpack-plugin");
+const ReactToHtmlWebpackPlugin = require("react-to-html-webpack-plugin");
 const path = require("path");
 const sourcePath = path.resolve(process.cwd(), "src");
 const distPath = path.resolve(process.cwd(), "dist");
