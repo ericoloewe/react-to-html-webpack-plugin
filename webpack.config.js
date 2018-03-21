@@ -6,14 +6,17 @@ const distPath = path.resolve(process.cwd(), "dist");
 
 module.exports = {
   entry: {
-    home: path.resolve(sourcePath, "pages/home")
+    home: path.resolve(sourcePath, "pages/home"),
+    containers: path.resolve(sourcePath, "containers/index"),
   },
   output: {
     path: distPath,
     libraryTarget: "umd"
   },
   plugins: [
-    new ReactPlugin()
+    new ReactPlugin({
+      excludedChunks: ['containers']
+    })
   ],
   module: {
     rules: [

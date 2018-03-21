@@ -1,33 +1,79 @@
 /**
  * React plugin
  */
-var ReactDOMServer = require('react-dom/server');
-var React = require('react');
-var evaluate = require('eval');
+const ReactDOMServer = require("react-dom/server");
+const React = require("react");
+const evaluate = require("eval");
+const path = require("path");
 
 module.exports.ReactPlugin = class {
+  constructor(props = {}) {
+    this.globals = props.globals || { global, window: global };
+    this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
+    this.chunks = props.chunks || [];
+    this.excludedChunks = props.excludedChunks || [];
+  }
+
   apply(compiler) {
-    compiler.hooks.emit.tapAsync('react-plugins', (compilation, callback) => {
-      const { assets, chunks } = compilation;
+    compiler.hooks.thisCompilation.tap("react-plugins", (compilation) => {
+      compilation.hooks.optimizeAssets.tapAsync("react-plugins", (_, doneOptimize) => {
+        const { assets, chunks } = compilation;
 
-      Object.keys(assets).forEach(a => {
-        const source = assets[a].source();
-        const evaluatedSource = evaluate(source, a, { global, window: global }, true);
-        const renderedFile = `<!DOCTYPE html>${ReactDOMServer.renderToString(React.createElement(evaluatedSource.default))}`;
+        try {
+          chunks.forEach(c => {
+            if ((!this._hasChunks() || this._isChunksToWork(c.id)) && !this._isExcludedChunks(c.id)) {
+              c.files.forEach(f => {
+                const renderedFile = this._renderSource(f, assets[f].source());
 
-        compilation.assets[`${a.replace(/\.[^/.]+$/, "")}.html`] = {
-          source: () => {
-            return renderedFile;
-          },
-          size: () => {
-            return renderedFile.length;
-          }
-        };
+                compilation.assets[this._parseAssetName(f)] = this._parseRenderToAsset(`${this.htmlHeader}${renderedFile}`);
 
-        delete compilation.assets[a];
+                delete compilation.assets[f];
+              });
+            }
+          });
+        } catch (ex) {
+          compilation.errors.push(ex.stack);
+        }
+
+        doneOptimize();
       });
-
-      callback();
     });
+  }
+
+  _renderSource(assetName, source) {
+    const evaluatedSource = evaluate(source, assetName, this.globals, true);
+
+    if (evaluatedSource == null || typeof (evaluatedSource.default) !== "function") {
+      throw new Error(`${assetName} must have a default component`);
+    }
+
+    return ReactDOMServer.renderToString(React.createElement(evaluatedSource.default));
+  }
+
+  _parseAssetName(assetName) {
+    return `${assetName.replace(/\.[^/.]+$/, "")}.html`;
+  }
+
+  _parseRenderToAsset(render) {
+    return {
+      source: () => {
+        return render;
+      },
+      size: () => {
+        return render.length;
+      }
+    };
+  }
+
+  _hasChunks() {
+    return this.chunks.length > 0;
+  }
+
+  _isChunksToWork(chunkId) {
+    return this.chunks.some(c => c === chunkId);
+  }
+
+  _isExcludedChunks(chunkId) {
+    return this.excludedChunks.some(c => c === chunkId);
   }
 }
