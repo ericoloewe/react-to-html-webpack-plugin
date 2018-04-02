@@ -16,7 +16,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
 
   apply(compiler) {
     compiler.hooks.thisCompilation.tap("react-to-html-webpack-plugin", (compilation) => {
-      compilation.hooks.optimizeAssets.tapAsync("react-to-html-webpack-plugin", (_, doneOptimize) => {
+      compilation.hooks.additionalAssets.tapAsync("react-to-html-webpack-plugin", (doneOptimize) => {
         const { assets, chunks } = compilation;
 
         chunks.forEach(c => {
@@ -24,9 +24,11 @@ module.exports = class ReactToHtmlWebpackPlugin {
             if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
               c.files.filter(f => f.indexOf(`${c.name}.js`) >= 0).forEach(f => {
                 const renderedFile = this._renderSource(f, assets[f].source());
+                const fileName = this._parseAssetName(f);
 
-                compilation.assets[this._parseAssetName(f)] = this._parseRenderToAsset(`${this.htmlHeader}${renderedFile}`);
-
+                compilation.assets[fileName] = this._parseRenderToAsset(`${this.htmlHeader}${renderedFile}`);
+                c.files.push(fileName);
+                c.files.splice(c.files.indexOf(f), 1);
                 delete compilation.assets[f];
               });
             }
