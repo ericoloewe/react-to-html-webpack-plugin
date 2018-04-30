@@ -44,12 +44,18 @@ module.exports = class ReactToHtmlWebpackPlugin {
 
   _renderSource(assetName, source) {
     const evaluatedSource = evaluate(source, assetName, this.globals, true);
+    const keys = Object.keys(evaluatedSource);
+    let element = evaluatedSource.default;
 
-    if (evaluatedSource == null || typeof (evaluatedSource.default) !== "function") {
+    if (evaluatedSource == null || (typeof (evaluatedSource.default) !== "function" && (keys.length > 1 || keys.length === 0))) {
       throw new Error(`${assetName} must have a default component`);
     }
 
-    return ReactDOMServer.renderToString(React.createElement(evaluatedSource.default));
+    if (element == null) {
+      element = evaluatedSource[keys[0]];
+    }
+
+    return ReactDOMServer.renderToString(React.createElement(element));
   }
 
   _parseAssetName(assetName) {
