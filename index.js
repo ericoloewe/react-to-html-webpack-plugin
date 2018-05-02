@@ -26,7 +26,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
                 const renderedFile = this._renderSource(f, assets[f].source());
                 const fileName = this._parseAssetName(f);
 
-                compilation.assets[fileName] = this._parseRenderToAsset(`${this.htmlHeader}${renderedFile}`);
+                compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
                 c.files.push(fileName);
                 c.files.splice(c.files.indexOf(f), 1);
                 delete compilation.assets[f];
@@ -47,15 +47,36 @@ module.exports = class ReactToHtmlWebpackPlugin {
     const keys = Object.keys(evaluatedSource);
     let element = evaluatedSource.default;
 
-    if (evaluatedSource == null || (typeof (evaluatedSource.default) !== "function" && (keys.length > 1 || keys.length === 0))) {
-      throw new Error(`${assetName} must have a default component`);
+    if (this._hadADefaultOrJustOneComponent(evaluatedSource)) {
+      throw new Error(`${assetName} must have a default or just one component`);
     }
 
     if (element == null) {
       element = evaluatedSource[keys[0]];
     }
 
-    return ReactDOMServer.renderToString(React.createElement(element));
+    let renderedFile = ReactDOMServer.renderToString(React.createElement(element));
+
+    if (renderedFile.trim().startsWith('<html')) {
+      renderedFile = `${this.htmlHeader}${renderedFile}`;
+    }
+
+    return renderedFile;
+  }
+
+  _hadADefaultOrJustOneComponent(evaluatedSource) {
+    const keys = Object.keys(evaluatedSource);
+
+    return (
+      evaluatedSource == null
+      || (
+        typeof (evaluatedSource.default) !== "function"
+        && (
+          keys.length > 1
+          || keys.length === 0
+        )
+      )
+    )
   }
 
   _parseAssetName(assetName) {
