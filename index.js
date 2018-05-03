@@ -12,6 +12,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
     this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
     this.chunks = props.chunks || [];
     this.excludedChunks = props.excludedChunks || [];
+    this.postRender = props.postRender || [];
   }
 
   apply(compiler) {
@@ -60,6 +61,10 @@ module.exports = class ReactToHtmlWebpackPlugin {
     if (renderedFile.trim().startsWith('<html')) {
       renderedFile = `${this.htmlHeader}${renderedFile}`;
     }
+
+    this.postRender.forEach(f => {
+      renderedFile = f(renderedFile);
+    });
 
     return renderedFile;
   }
