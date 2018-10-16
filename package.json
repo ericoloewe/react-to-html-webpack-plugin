@@ -1,5 +1,5 @@
 {
-  "name": "react-to-html-webpack-plugin",
+  "name": "react-to-static-html-webpack-plugin",
   "version": "0.1.3",
   "description": "",
   "main": "index.js",
