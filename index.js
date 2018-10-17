@@ -16,34 +16,65 @@ module.exports = class ReactToHtmlWebpackPlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.thisCompilation.tap("react-to-html-webpack-plugin", (compilation) => {
-      compilation.hooks.additionalAssets.tapAsync("react-to-html-webpack-plugin", (doneOptimize) => {
+    compiler.hooks.thisCompilation.tap("react-to-static-html-webpack-plugin", (compilation) => {
+      compilation.hooks.additionalAssets.tapAsync("react-to-static-html-webpack-plugin", (doneOptimize) => {
         const { assets, chunks } = compilation;
+        const chunkPromises = this._compileChunk(chunks, assets, compilation);
 
-        chunks.forEach(c => {
-          try {
-            if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-              c.files.filter(f => f.indexOf(`${c.name}.js`) >= 0).forEach(f => {
-                const renderedFile = this._renderSource(f, assets[f].source());
-                const fileName = this._parseAssetName(f);
-
-                compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
-                c.files.push(fileName);
-                c.files.splice(c.files.indexOf(f), 1);
-                delete compilation.assets[f];
-              });
-            }
-          } catch (ex) {
-            compilation.errors.push(ex.stack);
-          }
-        });
-
-        doneOptimize();
+        Promise
+          .all(chunkPromises)
+          .then(() => doneOptimize())
+          .catch(ex => {
+            console.error('There are some problem to compile chunks', ex);
+            doneOptimize();
+          });
       });
     });
   }
 
-  _renderSource(assetName, source) {
+  _compileChunk(chunks, assets, compilation) {
+    return chunks.map(c => {
+      try {
+        if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
+          return this._compileChunkSources(c, assets, compilation);
+        }
+      } catch (ex) {
+        compilation.errors.push(ex.stack);
+      }
+
+      return Promise.resolve();
+    }).reduce((p, n) => {
+      if (Array.isArray(n)) {
+        p = p.concat(n);
+      } else {
+        p.push(n);
+      }
+
+      return p;
+    }, []);
+  }
+
+  _compileChunkSources(chunk, assets, compilation) {
+    return chunk.files.filter(f => f.indexOf(`${chunk.name}.js`) >= 0).map(f => {
+      const renderedFilePromise = this._renderSource(f, assets[f].source());
+
+      renderedFilePromise.then(renderedFile => {
+        const fileName = this._parseAssetName(f);
+
+        compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
+        chunk.files.push(fileName);
+        chunk.files.splice(chunk.files.indexOf(f), 1);
+
+        delete compilation.assets[f];
+
+        return renderedFile;
+      });
+
+      return renderedFilePromise;
+    });
+  }
+
+  async _renderSource(assetName, source) {
     const evaluatedSource = evaluate(source, assetName, this.globals, true);
     const keys = Object.keys(evaluatedSource);
     let element = evaluatedSource.default;
@@ -56,17 +87,25 @@ module.exports = class ReactToHtmlWebpackPlugin {
       element = evaluatedSource[keys[0]];
     }
 
-    let renderedFile = ReactDOMServer.renderToString(React.createElement(element));
+    let elementPromise = Promise.resolve(element);
 
-    if (renderedFile.trim().startsWith('<html')) {
-      renderedFile = `${this.htmlHeader}${renderedFile}`;
-    }
+    return elementPromise.then(element => {
+      if (!React.isValidElement(element)) {
+        element = React.createElement(element)
+      }
 
-    this.postRender.forEach(f => {
-      renderedFile = f(renderedFile);
+      let renderedFile = ReactDOMServer.renderToString(element);
+
+      if (renderedFile.trim().startsWith('<html')) {
+        renderedFile = `${this.htmlHeader}${renderedFile}`;
+      }
+
+      this.postRender.forEach(f => {
+        renderedFile = f(renderedFile);
+      });
+
+      return renderedFile;
     });
-
-    return renderedFile;
   }
 
   _hadADefaultOrJustOneComponent(evaluatedSource) {
