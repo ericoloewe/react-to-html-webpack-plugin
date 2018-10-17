@@ -5,9 +5,11 @@ const ReactDOMServer = require("react-dom/server");
 const React = require("react");
 const evaluate = require("eval");
 
+const GLOBALS_MOCK = { global, window: global };
+
 module.exports = class ReactToHtmlWebpackPlugin {
   constructor(props = {}) {
-    this.globals = props.globals || { global, window: global };
+    this.globals = Object.assign(GLOBALS_MOCK, props.globals) || GLOBALS_MOCK;
     this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
     this.chunks = props.chunks || [];
     this.excludedChunks = props.excludedChunks || [];
