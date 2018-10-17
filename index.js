@@ -4,7 +4,6 @@
 const ReactDOMServer = require("react-dom/server");
 const React = require("react");
 const evaluate = require("eval");
-const path = require("path");
 
 module.exports = class ReactToHtmlWebpackPlugin {
   constructor(props = {}) {
@@ -120,7 +119,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
           || keys.length === 0
         )
       )
-    )
+    );
   }
 
   _parseAssetName(assetName) {
