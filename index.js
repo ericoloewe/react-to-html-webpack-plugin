@@ -14,6 +14,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
     this.chunks = props.chunks || [];
     this.excludedChunks = props.excludedChunks || [];
     this.postRender = props.postRender || [];
+    this.keepJsFile = props.keepJsFile || false;
   }
 
   apply(compiler) {
@@ -66,7 +67,9 @@ module.exports = class ReactToHtmlWebpackPlugin {
         chunk.files.push(fileName);
         chunk.files.splice(chunk.files.indexOf(f), 1);
 
-        delete compilation.assets[f];
+        if (!this.keepJsFile) {
+          delete compilation.assets[f];
+        }
 
         return renderedFile;
       });
