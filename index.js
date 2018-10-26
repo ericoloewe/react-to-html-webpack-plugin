@@ -27,7 +27,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
           .all(chunkPromises)
           .then(() => doneOptimize())
           .catch(ex => {
-            console.error('There are some problem to compile chunks', ex);
+            compilation.errors.push(ex);
             doneOptimize();
           });
       });
