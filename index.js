@@ -109,6 +109,10 @@ module.exports = class ReactToHtmlWebpackPlugin {
       });
 
       return renderedFile;
+    }).catch(ex => {
+      ex.message = `File ${assetName} gave an error: ${ex.message}`
+
+      throw ex
     });
   }
 
