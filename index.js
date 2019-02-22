@@ -79,7 +79,13 @@ module.exports = class ReactToHtmlWebpackPlugin {
   }
 
   async _renderSource(assetName, source) {
-    const evaluatedSource = evaluate(source, assetName, this.globals, true);
+    let globalsCopy = Object.assign({}, this.globals)
+    
+    globalsCopy.global = Object.assign({}, globalsCopy.global)
+    globalsCopy.window = Object.assign({}, globalsCopy.window)
+
+    const evaluatedSource = evaluate(source, assetName, globalsCopy, true);
+    globalsCopy = undefined
     const keys = Object.keys(evaluatedSource);
     let element = evaluatedSource.default;
 
