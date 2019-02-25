@@ -79,13 +79,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
   }
 
   async _renderSource(assetName, source) {
-    let globalsCopy = Object.assign({}, this.globals)
-    
-    globalsCopy.global = Object.assign({}, globalsCopy.global)
-    globalsCopy.window = Object.assign({}, globalsCopy.window)
-
-    const evaluatedSource = evaluate(source, assetName, globalsCopy, true);
-    globalsCopy = undefined
+    const evaluatedSource = evaluate(source, assetName, this._getGlobalsCopy(), true);
     const keys = Object.keys(evaluatedSource);
     let element = evaluatedSource.default;
 
@@ -120,6 +114,15 @@ module.exports = class ReactToHtmlWebpackPlugin {
 
       throw ex
     });
+  }
+
+  _getGlobalsCopy() {
+    let globalsCopy = Object.assign({}, this.globals);
+
+    globalsCopy.global = Object.assign({}, globalsCopy.global);
+    globalsCopy.window = Object.assign({}, globalsCopy.window);
+
+    return globalsCopy;
   }
 
   _hadADefaultOrJustOneComponent(evaluatedSource) {
