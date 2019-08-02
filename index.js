@@ -1,6 +1,3 @@
-/**
- * React To Html Webpack Plugin
- */
 const ReactDOMServer = require("react-dom/server");
 const React = require("react");
 const evaluate = require("eval");
