@@ -1,7 +1,7 @@
 {
   "name": "react-to-static-html-webpack-plugin",
   "version": "1.0.0",
-  "description": "",
+  "description": "Project created to generate a html (templates) file from your react webpack entry",
   "main": "index.js",
   "author": "Érico de Souza Loewe",
   "license": "MIT",
@@ -16,5 +16,11 @@
   },
   "peerDependencies": {
     "webpack": "^4.1.1"
-  }
+  },
+  "keywords": [
+    "react",
+    "react-dom",
+    "webpack",
+    "react-to-html"
+  ]
 }

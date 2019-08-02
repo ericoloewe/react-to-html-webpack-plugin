@@ -6,7 +6,7 @@ npm install react-to-static-html-webpack-plugin
 
 ## Introduction
 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project.
+This project was created to generate a html (templates) file from your react webpack entry
 
 ### Example
 
@@ -14,12 +14,34 @@ You can try this package cloning the repository and accessing the folder `exampl
 
 ## Getting Started
 
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
+:warning: every config is optional
+
+```javascript
+// webpack.config.js
+const ReactToHtmlWebpackPlugin = require("react-to-html-webpack-plugin");
+
+module.exports = {
+    // ...your webpack config
+    plugins: [
+        new ReactToHtmlWebpackPlugin({
+            globals = // {custom-global-object}
+            htmlHeader = // "custom => <!DOCTYPE html>";
+            chunks = // custom allowed chunks => ['<my-chunk>'];
+            excludedChunks = // custom excluded chunks => ['<my-chunk>'];
+            postRender = // custom post render method => [(content) => content]
+            keepJsFile = // keep generated js file (not just the parsed html file)
+        });
+    ]
+    // ...your webpack config
+}
+```
 
 ## Build and Test
 
-TODO: Describe and show how to build your code and run the tests.
+No build needed
 
 ## Contribute
 
-TODO: Explain how other users and developers can contribute to make your code better.
+### Commit Guidelines
+
+My commits convention is based at [AngularJs Commits Convention](https://github.com/angular/angular.js/blob/master/CONTRIBUTING.md#commit)
