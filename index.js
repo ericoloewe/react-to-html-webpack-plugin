@@ -1,12 +1,8 @@
-const ReactDOMServer = require("react-dom/server");
-const React = require("react");
-const evaluate = require("eval");
-
-const GLOBALS_MOCK = { global, window: global };
+const { fork } = require("child_process");
 
 module.exports = class ReactToHtmlWebpackPlugin {
   constructor(props = {}) {
-    this.globals = Object.assign(GLOBALS_MOCK, props.globals) || GLOBALS_MOCK;
+    this.globals = props.globals || {};
     this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
     this.chunks = props.chunks || [];
     this.excludedChunks = props.excludedChunks || [];
@@ -15,126 +11,106 @@ module.exports = class ReactToHtmlWebpackPlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.thisCompilation.tap("react-to-static-html-webpack-plugin", (compilation) => {
-      compilation.hooks.additionalAssets.tapAsync("react-to-static-html-webpack-plugin", (doneOptimize) => {
-        const { assets, chunks } = compilation;
-        const chunkPromises = this._compileChunk(chunks, assets, compilation);
+    compiler.hooks.thisCompilation.tap(
+      "react-to-static-html-webpack-plugin",
+      compilation => {
+        compilation.hooks.additionalAssets.tapAsync(
+          "react-to-static-html-webpack-plugin",
+          doneOptimize => {
+            const { assets, chunks } = compilation;
+            const chunkPromises = this._compileChunk(
+              chunks,
+              assets,
+              compilation
+            );
 
-        Promise
-          .all(chunkPromises)
-          .then(() => doneOptimize())
-          .catch(ex => {
-            compilation.errors.push(ex);
-            doneOptimize();
-          });
-      });
-    });
+            Promise.all(chunkPromises)
+              .then(() => doneOptimize())
+              .catch(ex => {
+                compilation.errors.push(ex);
+                doneOptimize();
+              });
+          }
+        );
+      }
+    );
   }
 
   _compileChunk(chunks, assets, compilation) {
-    return chunks.map(c => {
-      try {
-        if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-          return this._compileChunkSources(c, assets, compilation);
+    return chunks
+      .map(c => {
+        try {
+          if (
+            (!this._hasChunks() || this._isChunksToWork(c.name)) &&
+            !this._isExcludedChunks(c.name)
+          ) {
+            return this._compileChunkSources(c, assets, compilation);
+          }
+        } catch (ex) {
+          compilation.errors.push(ex.stack);
         }
-      } catch (ex) {
-        compilation.errors.push(ex.stack);
-      }
 
-      return Promise.resolve();
-    }).reduce((p, n) => {
-      if (Array.isArray(n)) {
-        p = p.concat(n);
-      } else {
-        p.push(n);
-      }
+        return Promise.resolve();
+      })
+      .reduce((p, n) => {
+        if (Array.isArray(n)) {
+          p = p.concat(n);
+        } else {
+          p.push(n);
+        }
 
-      return p;
-    }, []);
+        return p;
+      }, []);
   }
 
   _compileChunkSources(chunk, assets, compilation) {
-    return chunk.files.filter(f => f.indexOf(`${chunk.name}.js`) >= 0).map(f => {
-      const renderedFilePromise = this._renderSource(f, assets[f].source());
+    return chunk.files
+      .filter(f => f.indexOf(`${chunk.name}.js`) >= 0)
+      .map(f => {
+        const renderedFilePromise = this._renderSource(f, assets[f].source());
 
-      renderedFilePromise.then(renderedFile => {
-        const fileName = this._parseAssetName(f);
+        renderedFilePromise.then(renderedFile => {
+          this.postRender.forEach(f => {
+            renderedFile = f(renderedFile);
+          });
 
-        compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
-        chunk.files.push(fileName);
-        chunk.files.splice(chunk.files.indexOf(f), 1);
+          const fileName = this._parseAssetName(f);
 
-        if (!this.keepJsFile) {
-          delete compilation.assets[f];
+          compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
+          chunk.files.push(fileName);
+          chunk.files.splice(chunk.files.indexOf(f), 1);
+
+          if (!this.keepJsFile) {
+            delete compilation.assets[f];
+          }
+
+          return renderedFile;
+        });
+
+        return renderedFilePromise;
+      });
+  }
+
+  _renderSource(assetName, source) {
+    const forked = fork(require.resolve("./render-source.js"));
+
+    return new Promise((resolve, reject) => {
+      forked.on("message", ({ renderedFile, error }) => {
+        if (error) {
+          console.error("Stack: ", error);
+
+          reject(error);
+        } else {
+          resolve(renderedFile);
         }
-
-        return renderedFile;
       });
 
-      return renderedFilePromise;
-    });
-  }
-
-  async _renderSource(assetName, source) {
-    const evaluatedSource = evaluate(source, assetName, this._getGlobalsCopy(), true);
-    const keys = Object.keys(evaluatedSource);
-    let element = evaluatedSource.default;
-
-    if (this._hadADefaultOrJustOneComponent(evaluatedSource)) {
-      throw new Error(`${assetName} must have a default or just one component`);
-    }
-
-    if (element == null) {
-      element = evaluatedSource[keys[0]];
-    }
-
-    let elementPromise = Promise.resolve(element);
-
-    return elementPromise.then(element => {
-      if (!React.isValidElement(element)) {
-        element = React.createElement(element)
-      }
-
-      let renderedFile = ReactDOMServer.renderToString(element);
-
-      if (renderedFile.trim().startsWith('<html')) {
-        renderedFile = `${this.htmlHeader}${renderedFile}`;
-      }
-
-      this.postRender.forEach(f => {
-        renderedFile = f(renderedFile);
+      forked.send({
+        assetName,
+        source,
+        options: { globals: this.globals, htmlHeader: this.htmlHeader }
       });
-
-      return renderedFile;
-    }).catch(ex => {
-      ex.message = `File ${assetName} gave an error: ${ex.message}`
-
-      throw ex
     });
-  }
-
-  _getGlobalsCopy() {
-    let globalsCopy = Object.assign({}, this.globals);
-
-    globalsCopy.global = Object.assign({}, globalsCopy.global);
-    globalsCopy.window = Object.assign({}, globalsCopy.window);
-
-    return globalsCopy;
-  }
-
-  _hadADefaultOrJustOneComponent(evaluatedSource) {
-    const keys = Object.keys(evaluatedSource);
-
-    return (
-      evaluatedSource == null
-      || (
-        typeof (evaluatedSource.default) !== "function"
-        && (
-          keys.length > 1
-          || keys.length === 0
-        )
-      )
-    );
   }
 
   _parseAssetName(assetName) {
@@ -163,4 +139,4 @@ module.exports = class ReactToHtmlWebpackPlugin {
   _isExcludedChunks(chunkId) {
     return this.excludedChunks.some(c => c === chunkId);
   }
-}
+};
