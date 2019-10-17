@@ -41,8 +41,12 @@ async function getCache(key) {
   let configs = null;
   const configsPath = getConfigPathForKey(key);
 
-  if (await existsAsync(configsPath)) {
-    configs = require(configsPath);
+  try {
+    if (await existsAsync(configsPath)) {
+      configs = require(configsPath);
+    }
+  } catch (ex) {
+    console.error('There are some problems to get cache config: ', ex);
   }
 
   return configs;
