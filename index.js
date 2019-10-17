@@ -11,7 +11,7 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     this.globals = Object.assign(GLOBALS_MOCK, props.globals) || GLOBALS_MOCK;
     this.htmlHeader = props.htmlHeader || '<!DOCTYPE html>';
     this.chunks = props.chunks || [];
-    this.excludedChunks = props.excludedChunks || [];
+    this.excludedChunks = ['runtime', ...(props.excludedChunks || [])];
     this.postRender = props.postRender || [];
     this.keepJsFile = props.keepJsFile || false;
   }
@@ -42,22 +42,13 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     });
   }
 
-  _compileChunk(chunks, assets, compilation) {
+  async _compileChunk(chunks, assets, compilation) {
     const runtimeAsset = this._getRuntimeFromAssetsOrDefault(assets);
     const runtimeAssetSource = runtimeAsset != null ? runtimeAsset.source() : '';
 
     return chunks
-      .map(c => {
-        try {
-          if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-            return this._compileChunkSources(c, assets, compilation, runtimeAssetSource);
-          }
-        } catch (ex) {
-          compilation.errors.push(ex.stack);
-        }
-
-        return Promise.resolve();
-      })
+      .filter(c => (!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name))
+      .map(c => this._compileChunkSources(c, assets, compilation, runtimeAssetSource))
       .reduce((p, n) => {
         if (Array.isArray(n)) {
           p = p.concat(n);
@@ -69,11 +60,13 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
       }, []);
   }
 
-  _compileChunkSources(chunk, assets, compilation, runtimeAssetSource) {
+  async _compileChunkSources(chunk, assets, compilation, runtimeAssetSource) {
     return chunk.files
       .filter(f => f.indexOf(`${chunk.name}.js`) >= 0)
       .map(f => {
-        const renderedFilePromise = this._renderSourceIfNeed(f, `${runtimeAssetSource}\n${assets[f].source()}`, chunk.contentHash.javascript);
+        const sourceToRender = `${runtimeAssetSource}\n${assets[f].source()}`;
+        const hash = chunk.contentHash.javascript;
+        const renderedFilePromise = this._renderSourceIfNeed(f, sourceToRender, hash);
 
         renderedFilePromise.then(renderedFile => {
           const fileName = this._parseAssetName(f);
