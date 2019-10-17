@@ -1,6 +1,6 @@
 {
   "name": "react-to-static-html-webpack-plugin",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Project created to generate a html (templates) file from your react webpack entry",
   "main": "index.js",
   "author": "Érico de Souza Loewe",
