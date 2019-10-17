@@ -7,6 +7,17 @@ const { getDataFromCacheOrMethod } = require('./cache');
 const GLOBALS_MOCK = { global, window: global };
 
 module.exports = class ReactToStaticHtmlWebpackPlugin {
+  /**
+   * @param {{
+   *  globals: any,
+   *  htmlHeader: string,
+   *  chunks: string[],
+   *  excludedChunks: string[],
+   *  postRender: (() => string)[],
+   *  keepJsFile: boolean,
+   *  cache: boolean,
+   * }} props
+   */
   constructor(props = {}) {
     this.globals = Object.assign(GLOBALS_MOCK, props.globals) || GLOBALS_MOCK;
     this.htmlHeader = props.htmlHeader || '<!DOCTYPE html>';
