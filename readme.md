@@ -30,6 +30,7 @@ module.exports = {
             excludedChunks = // custom excluded chunks => ['<my-chunk>'];
             postRender = // custom post render method => [(content) => content]
             keepJsFile = // keep generated js file (not just the parsed html file)
+            cache = // create cache for the running build at node_modules/.cache folder (default: true)
         });
     ]
     // ...your webpack config

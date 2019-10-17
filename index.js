@@ -14,6 +14,7 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     this.excludedChunks = ['runtime', ...(props.excludedChunks || [])];
     this.postRender = props.postRender || [];
     this.keepJsFile = props.keepJsFile || false;
+    this.cache = props.cache || true;
   }
 
   /**
@@ -76,8 +77,22 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     await Promise.all(promises);
   }
 
+  /**
+   * @param {string} assetName
+   * @param {string} source
+   * @param {string} hash
+   * @returns {string}
+   */
   async _renderSourceIfNeed(assetName, source, hash) {
-    return getDataFromCacheOrMethod(assetName, hash, async () => await this._renderSource(assetName, source));
+    let source;
+
+    if (this.cache) {
+      source = await getDataFromCacheOrMethod(assetName, hash, async () => await this._renderSource(assetName, source));
+    } else {
+      source = await this._renderSource(assetName, source);
+    }
+
+    return source;
   }
 
   async _renderSource(assetName, source) {
