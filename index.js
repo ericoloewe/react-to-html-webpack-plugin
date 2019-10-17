@@ -30,7 +30,7 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
         Promise.all(chunkPromises)
           .then(() => {
             console.log('L => Finished in (ms): ', Date.now() - startDate);
-            
+
             doneOptimize();
           })
           .catch(ex => {
@@ -43,11 +43,14 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
   }
 
   _compileChunk(chunks, assets, compilation) {
+    const runtimeAsset = this._getRuntimeFromAssetsOrDefault(assets);
+    const runtimeAssetSource = runtimeAsset != null ? runtimeAsset.source() : '';
+
     return chunks
       .map(c => {
         try {
           if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-            return this._compileChunkSources(c, assets, compilation);
+            return this._compileChunkSources(c, assets, compilation, runtimeAssetSource);
           }
         } catch (ex) {
           compilation.errors.push(ex.stack);
@@ -66,11 +69,11 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
       }, []);
   }
 
-  _compileChunkSources(chunk, assets, compilation) {
+  _compileChunkSources(chunk, assets, compilation, runtimeAssetSource) {
     return chunk.files
       .filter(f => f.indexOf(`${chunk.name}.js`) >= 0)
       .map(f => {
-        const renderedFilePromise = this._renderSourceIfNeed(f, assets[f].source(), chunk.contentHash.javascript);
+        const renderedFilePromise = this._renderSourceIfNeed(f, `${runtimeAssetSource}\n${assets[f].source()}`, chunk.contentHash.javascript);
 
         renderedFilePromise.then(renderedFile => {
           const fileName = this._parseAssetName(f);
@@ -141,6 +144,12 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     globalsCopy.window = Object.assign({}, globalsCopy.window);
 
     return globalsCopy;
+  }
+
+  _getRuntimeFromAssetsOrDefault(assets) {
+    const runtimeKey = Object.keys(assets).find(a => a.includes('runtime'));
+
+    return assets[runtimeKey];
   }
 
   _hadADefaultOrJustOneComponent(evaluatedSource) {
