@@ -21,23 +21,22 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
    */
   apply(compiler) {
     compiler.hooks.thisCompilation.tap('react-to-static-html-webpack-plugin', compilation => {
-      compilation.hooks.additionalAssets.tapAsync('react-to-static-html-webpack-plugin', doneOptimize => {
+      compilation.hooks.additionalAssets.tapAsync('react-to-static-html-webpack-plugin', async doneOptimize => {
         const startDate = Date.now();
-        console.log('STARTED => ', startDate);
         const { assets, chunks } = compilation;
-        const chunkPromises = this._compileChunk(chunks, assets, compilation);
 
-        Promise.all(chunkPromises)
-          .then(() => {
-            console.log('L => Finished in (ms): ', Date.now() - startDate);
+        console.log('STARTED => ', startDate);
 
-            doneOptimize();
-          })
-          .catch(ex => {
-            console.log('E => Finished in (ms): ', Date.now() - startDate);
-            compilation.errors.push(ex);
-            doneOptimize();
-          });
+        try {
+          await this._compileChunk(chunks, assets, compilation);
+
+          console.log('L => Finished in (ms): ', Date.now() - startDate);
+        } catch (ex) {
+          console.log('E => Finished in (ms): ', Date.now() - startDate);
+          compilation.errors.push(ex);
+        }
+
+        doneOptimize();
       });
     });
   }
@@ -46,44 +45,35 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
     const runtimeAsset = this._getRuntimeFromAssetsOrDefault(assets);
     const runtimeAssetSource = runtimeAsset != null ? runtimeAsset.source() : '';
 
-    return chunks
+    const promises = chunks
       .filter(c => (!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name))
-      .map(c => this._compileChunkSources(c, assets, compilation, runtimeAssetSource))
-      .reduce((p, n) => {
-        if (Array.isArray(n)) {
-          p = p.concat(n);
-        } else {
-          p.push(n);
-        }
+      .map(c => this._compileChunkSources(c, assets, compilation, runtimeAssetSource));
 
-        return p;
-      }, []);
+    await Promise.all(promises);
   }
 
   async _compileChunkSources(chunk, assets, compilation, runtimeAssetSource) {
-    return chunk.files
+    const promises = chunk.files
       .filter(f => f.indexOf(`${chunk.name}.js`) >= 0)
-      .map(f => {
+      .map(async f => {
         const sourceToRender = `${runtimeAssetSource}\n${assets[f].source()}`;
         const hash = chunk.contentHash.javascript;
-        const renderedFilePromise = this._renderSourceIfNeed(f, sourceToRender, hash);
+        const renderedFile = await this._renderSourceIfNeed(f, sourceToRender, hash);
 
-        renderedFilePromise.then(renderedFile => {
-          const fileName = this._parseAssetName(f);
+        const fileName = this._parseAssetName(f);
 
-          compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
-          chunk.files.push(fileName);
-          chunk.files.splice(chunk.files.indexOf(f), 1);
+        compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
+        chunk.files.push(fileName);
+        chunk.files.splice(chunk.files.indexOf(f), 1);
 
-          if (!this.keepJsFile) {
-            delete compilation.assets[f];
-          }
+        if (!this.keepJsFile) {
+          delete compilation.assets[f];
+        }
 
-          return renderedFile;
-        });
-
-        return renderedFilePromise;
+        return renderedFile;
       });
+
+    await Promise.all(promises);
   }
 
   async _renderSourceIfNeed(assetName, source, hash) {
