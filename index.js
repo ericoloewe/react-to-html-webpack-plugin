@@ -34,17 +34,11 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
   apply(compiler) {
     compiler.hooks.thisCompilation.tap('react-to-static-html-webpack-plugin', compilation => {
       compilation.hooks.additionalAssets.tapAsync('react-to-static-html-webpack-plugin', async doneOptimize => {
-        const startDate = Date.now();
         const { assets, chunks } = compilation;
-
-        console.log('STARTED => ', startDate);
 
         try {
           await this._compileChunk(chunks, assets, compilation);
-
-          console.log('L => Finished in (ms): ', Date.now() - startDate);
         } catch (ex) {
-          console.log('E => Finished in (ms): ', Date.now() - startDate);
           compilation.errors.push(ex);
         }
 
