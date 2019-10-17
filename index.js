@@ -95,15 +95,15 @@ module.exports = class ReactToStaticHtmlWebpackPlugin {
    * @returns {string}
    */
   async _renderSourceIfNeed(assetName, source, hash) {
-    let source;
+    let nextSource;
 
     if (this.cache) {
-      source = await getDataFromCacheOrMethod(assetName, hash, async () => await this._renderSource(assetName, source));
+      nextSource = await getDataFromCacheOrMethod(assetName, hash, async () => await this._renderSource(assetName, source));
     } else {
-      source = await this._renderSource(assetName, source);
+      nextSource = await this._renderSource(assetName, source);
     }
 
-    return source;
+    return nextSource;
   }
 
   async _renderSource(assetName, source) {
