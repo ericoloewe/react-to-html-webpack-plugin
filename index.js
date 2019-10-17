@@ -1,63 +1,71 @@
-const ReactDOMServer = require("react-dom/server");
-const React = require("react");
-const evaluate = require("eval");
+const ReactDOMServer = require('react-dom/server');
+const React = require('react');
+const evaluate = require('eval');
+
+const { getDataFromCacheOrMethod } = require('./cache');
 
 const GLOBALS_MOCK = { global, window: global };
 
-module.exports = class ReactToHtmlWebpackPlugin {
+module.exports = class ReactToStaticHtmlWebpackPlugin {
+  /**
+   * @param {{
+   *  globals: any,
+   *  htmlHeader: string,
+   *  chunks: string[],
+   *  excludedChunks: string[],
+   *  postRender: (() => string)[],
+   *  keepJsFile: boolean,
+   *  cache: boolean,
+   * }} props
+   */
   constructor(props = {}) {
     this.globals = Object.assign(GLOBALS_MOCK, props.globals) || GLOBALS_MOCK;
-    this.htmlHeader = props.htmlHeader || "<!DOCTYPE html>";
+    this.htmlHeader = props.htmlHeader || '<!DOCTYPE html>';
     this.chunks = props.chunks || [];
-    this.excludedChunks = props.excludedChunks || [];
+    this.excludedChunks = ['runtime', ...(props.excludedChunks || [])];
     this.postRender = props.postRender || [];
     this.keepJsFile = props.keepJsFile || false;
+    this.cache = props.cache || true;
   }
 
+  /**
+   * @param {*} compiler
+   */
   apply(compiler) {
-    compiler.hooks.thisCompilation.tap("react-to-static-html-webpack-plugin", (compilation) => {
-      compilation.hooks.additionalAssets.tapAsync("react-to-static-html-webpack-plugin", (doneOptimize) => {
+    compiler.hooks.thisCompilation.tap('react-to-static-html-webpack-plugin', compilation => {
+      compilation.hooks.additionalAssets.tapAsync('react-to-static-html-webpack-plugin', async doneOptimize => {
         const { assets, chunks } = compilation;
-        const chunkPromises = this._compileChunk(chunks, assets, compilation);
 
-        Promise
-          .all(chunkPromises)
-          .then(() => doneOptimize())
-          .catch(ex => {
-            compilation.errors.push(ex);
-            doneOptimize();
-          });
+        try {
+          await this._compileChunk(chunks, assets, compilation);
+        } catch (ex) {
+          compilation.errors.push(ex);
+        }
+
+        doneOptimize();
       });
     });
   }
 
-  _compileChunk(chunks, assets, compilation) {
-    return chunks.map(c => {
-      try {
-        if ((!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name)) {
-          return this._compileChunkSources(c, assets, compilation);
-        }
-      } catch (ex) {
-        compilation.errors.push(ex.stack);
-      }
+  async _compileChunk(chunks, assets, compilation) {
+    const runtimeAsset = this._getRuntimeFromAssetsOrDefault(assets);
+    const runtimeAssetSource = runtimeAsset != null ? runtimeAsset.source() : '';
 
-      return Promise.resolve();
-    }).reduce((p, n) => {
-      if (Array.isArray(n)) {
-        p = p.concat(n);
-      } else {
-        p.push(n);
-      }
+    const promises = chunks
+      .filter(c => (!this._hasChunks() || this._isChunksToWork(c.name)) && !this._isExcludedChunks(c.name))
+      .map(c => this._compileChunkSources(c, assets, compilation, runtimeAssetSource));
 
-      return p;
-    }, []);
+    await Promise.all(promises);
   }
 
-  _compileChunkSources(chunk, assets, compilation) {
-    return chunk.files.filter(f => f.indexOf(`${chunk.name}.js`) >= 0).map(f => {
-      const renderedFilePromise = this._renderSource(f, assets[f].source());
+  async _compileChunkSources(chunk, assets, compilation, runtimeAssetSource) {
+    const promises = chunk.files
+      .filter(f => f.indexOf(`${chunk.name}.js`) >= 0)
+      .map(async f => {
+        const sourceToRender = `${runtimeAssetSource}\n${assets[f].source()}`;
+        const hash = chunk.contentHash.javascript;
+        const renderedFile = await this._renderSourceIfNeed(f, sourceToRender, hash);
 
-      renderedFilePromise.then(renderedFile => {
         const fileName = this._parseAssetName(f);
 
         compilation.assets[fileName] = this._parseRenderToAsset(renderedFile);
@@ -71,8 +79,25 @@ module.exports = class ReactToHtmlWebpackPlugin {
         return renderedFile;
       });
 
-      return renderedFilePromise;
-    });
+    await Promise.all(promises);
+  }
+
+  /**
+   * @param {string} assetName
+   * @param {string} source
+   * @param {string} hash
+   * @returns {string}
+   */
+  async _renderSourceIfNeed(assetName, source, hash) {
+    let nextSource;
+
+    if (this.cache) {
+      nextSource = await getDataFromCacheOrMethod(assetName, hash, async () => await this._renderSource(assetName, source));
+    } else {
+      nextSource = await this._renderSource(assetName, source);
+    }
+
+    return nextSource;
   }
 
   async _renderSource(assetName, source) {
@@ -90,27 +115,29 @@ module.exports = class ReactToHtmlWebpackPlugin {
 
     let elementPromise = Promise.resolve(element);
 
-    return elementPromise.then(element => {
-      if (!React.isValidElement(element)) {
-        element = React.createElement(element)
-      }
+    return elementPromise
+      .then(element => {
+        if (!React.isValidElement(element)) {
+          element = React.createElement(element);
+        }
 
-      let renderedFile = ReactDOMServer.renderToString(element);
+        let renderedFile = ReactDOMServer.renderToString(element);
 
-      if (renderedFile.trim().startsWith('<html')) {
-        renderedFile = `${this.htmlHeader}${renderedFile}`;
-      }
+        if (renderedFile.trim().startsWith('<html')) {
+          renderedFile = `${this.htmlHeader}${renderedFile}`;
+        }
 
-      this.postRender.forEach(f => {
-        renderedFile = f(renderedFile);
+        this.postRender.forEach(f => {
+          renderedFile = f(renderedFile);
+        });
+
+        return renderedFile;
+      })
+      .catch(ex => {
+        ex.message = `File ${assetName} gave an error: ${ex.message}`;
+
+        throw ex;
       });
-
-      return renderedFile;
-    }).catch(ex => {
-      ex.message = `File ${assetName} gave an error: ${ex.message}`
-
-      throw ex
-    });
   }
 
   _getGlobalsCopy() {
@@ -122,23 +149,20 @@ module.exports = class ReactToHtmlWebpackPlugin {
     return globalsCopy;
   }
 
+  _getRuntimeFromAssetsOrDefault(assets) {
+    const runtimeKey = Object.keys(assets).find(a => a.includes('runtime'));
+
+    return assets[runtimeKey];
+  }
+
   _hadADefaultOrJustOneComponent(evaluatedSource) {
     const keys = Object.keys(evaluatedSource);
 
-    return (
-      evaluatedSource == null
-      || (
-        typeof (evaluatedSource.default) !== "function"
-        && (
-          keys.length > 1
-          || keys.length === 0
-        )
-      )
-    );
+    return evaluatedSource == null || (typeof evaluatedSource.default !== 'function' && (keys.length > 1 || keys.length === 0));
   }
 
   _parseAssetName(assetName) {
-    return `${assetName.replace(/\.[^/.]+$/, "")}.html`;
+    return `${assetName.replace(/\.[^/.]+$/, '')}.html`;
   }
 
   _parseRenderToAsset(render) {
@@ -148,7 +172,7 @@ module.exports = class ReactToHtmlWebpackPlugin {
       },
       size: () => {
         return render.length;
-      }
+      },
     };
   }
 
@@ -163,4 +187,4 @@ module.exports = class ReactToHtmlWebpackPlugin {
   _isExcludedChunks(chunkId) {
     return this.excludedChunks.some(c => c === chunkId);
   }
-}
+};
